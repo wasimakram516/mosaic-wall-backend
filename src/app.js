@@ -4,6 +4,8 @@ const cookieParser = require("cookie-parser");
 const connectDB = require("./config/db");
 
 const authRoutes = require("./routes/authRoutes");
+const wallConfigRoutes = require("./routes/wallConfig");
+const displayMediaRoutes = require("./routes/displayMediaRoutes");
 const errorHandler = require("./middlewares/errorHandler");
 const seedAdmin = require("./seeder/adminSeeder");
 
@@ -40,6 +42,7 @@ initializeApp();
 
 // ✅ Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/wall-configs", wallConfigRoutes);
 app.use("/api/display-media", displayMediaRoutes);
 
 // Health Check

@@ -1,6 +1,8 @@
 const DisplayMedia = require("../models/DisplayMedia");
+const WallConfig = require("../models/WallConfig");
 const response = require("../utils/response");
-const { uploadToCloudinary, deleteImage } = require("../utils/cloudinary");
+const { uploadToCloudinary } = require("../utils/uploadToCloudinary");
+const {  deleteImage } = require("../config/cloudinary");
 const asyncHandler = require("../middlewares/asyncHandler");
 
 let io;
@@ -10,11 +12,10 @@ exports.setSocketIo = (socketIoInstance) => {
   io = socketIoInstance;
 };
 
-// ✅ Emit all media to connected screens
 const emitMediaUpdate = async () => {
   try {
     if (!io) throw new Error("WebSocket instance not initialized.");
-    const allMedia = await DisplayMedia.find().sort({ createdAt: -1 });
+    const allMedia = await DisplayMedia.find().sort({ createdAt: -1 }).populate("wall");
     io.emit("mediaUpdate", allMedia);
   } catch (err) {
     console.error("❌ Failed to emit media update:", err.message);
@@ -23,48 +24,46 @@ const emitMediaUpdate = async () => {
 
 // ✅ Get all media
 exports.getDisplayMedia = asyncHandler(async (req, res) => {
-  const items = await DisplayMedia.find().sort({ createdAt: -1 });
+  const items = await DisplayMedia.find().sort({ createdAt: -1 }).populate("wall");
   return response(res, 200, items.length ? "Media fetched." : "No media found.", items);
 });
 
 // ✅ Get one media item by ID
 exports.getMediaById = asyncHandler(async (req, res) => {
-  const item = await DisplayMedia.findById(req.params.id);
+  const item = await DisplayMedia.findById(req.params.id).populate("wall");
   if (!item) return response(res, 404, "Media not found.");
   return response(res, 200, "Media retrieved.", item);
 });
 
-// ✅ Create new media
+// ✅ Create new media (linked to wall config via slug)
 exports.createDisplayMedia = asyncHandler(async (req, res) => {
-  const { text = "", mode } = req.body;
+  const { text = "", wallSlug } = req.body;
 
   if (!req.file) return response(res, 400, "Image file is required.");
-  if (!mode || !["mosaic", "card"].includes(mode))
-    return response(res, 400, "Invalid mode. Use 'mosaic' or 'card'.");
+  if (!wallSlug) return response(res, 400, "Wall slug is required.");
+
+  const wall = await WallConfig.findOne({ slug: wallSlug });
+  if (!wall) return response(res, 404, "Wall configuration not found.");
 
   const uploaded = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
 
   const media = await DisplayMedia.create({
     imageUrl: uploaded.secure_url,
-    text,
-    mode
+    text: wall.mode === "card" ? text : "",
+    wall: wall._id
   });
 
   await emitMediaUpdate();
   return response(res, 201, "Media created successfully.", media);
 });
 
-// ✅ Update media (only text or mode)
+// ✅ Update media (image or text only)
 exports.updateDisplayMedia = asyncHandler(async (req, res) => {
   const item = await DisplayMedia.findById(req.params.id);
   if (!item) return response(res, 404, "Media not found.");
 
-  const { text, mode } = req.body;
+  if (req.body.text !== undefined) item.text = req.body.text;
 
-  if (text !== undefined) item.text = text;
-  if (mode !== undefined && ["mosaic", "card"].includes(mode)) item.mode = mode;
-
-  // Replace image if a new one is uploaded
   if (req.file) {
     await deleteImage(item.imageUrl);
     const uploaded = await uploadToCloudinary(req.file.buffer, req.file.mimetype);

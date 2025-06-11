@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const DisplayMediaSchema = new mongoose.Schema({
   imageUrl: {
@@ -7,15 +7,13 @@ const DisplayMediaSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    default: ''
+    default: ""
   },
-  mode: {
-    type: String,
-    enum: ['mosaic', 'card'],
+  wall: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "WallConfig",
     required: true
   }
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model('DisplayMedia', DisplayMediaSchema);
+module.exports = mongoose.model("DisplayMedia", DisplayMediaSchema);
