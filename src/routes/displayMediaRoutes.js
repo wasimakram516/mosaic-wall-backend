@@ -18,7 +18,7 @@ router.delete("/:id", protect, adminOnly, deleteDisplayMedia);
 
 // Public Routes
 
-router.post("/", upload.single("image"), createDisplayMedia);
+router.post("/upload/:slug", upload.single("image"), createDisplayMedia);
 router.get("/", getDisplayMedia);
 router.get("/:id", getMediaById);
 

@@ -6,9 +6,13 @@ const asyncHandler = require("../middlewares/asyncHandler");
 
 // Generate Access & Refresh Tokens
 const generateTokens = (user) => {
-  const accessToken = jwt.sign({ id: user._id, role: user.role }, env.jwt.secret, {
-    expiresIn: env.jwt.accessExpiry,
-  });
+  const accessToken = jwt.sign(
+    { id: user._id, role: user.role },
+    env.jwt.secret,
+    {
+      expiresIn: env.jwt.accessExpiry,
+    }
+  );
 
   const refreshToken = jwt.sign({ id: user._id }, env.jwt.secret, {
     expiresIn: env.jwt.refreshExpiry,
@@ -32,7 +36,10 @@ exports.registerAdmin = asyncHandler(async (req, res) => {
   const user = new User({ name, email, password, role: "admin" });
   await user.save();
 
-  return response(res, 201, "Admin registered successfully", { user });
+  // Refetch without password
+  const userWithoutPassword = await User.findById(user._id).select("-password");
+
+  return response(res, 201, "Admin registered successfully", { user: userWithoutPassword });
 });
 
 // ✅ Login & Set Refresh Token in Cookie
@@ -70,7 +77,10 @@ exports.login = asyncHandler(async (req, res) => {
     updatedAt: user.updatedAt,
   };
 
-  return response(res, 200, "Login successful", { accessToken, user: userSafe });
+  return response(res, 200, "Login successful", {
+    accessToken,
+    user: userSafe,
+  });
 });
 
 // ✅ Refresh Token
@@ -88,7 +98,9 @@ exports.refreshToken = asyncHandler(async (req, res) => {
       expiresIn: env.jwt.accessExpiry,
     });
 
-    return response(res, 200, "Token refreshed", { accessToken: newAccessToken });
+    return response(res, 200, "Token refreshed", {
+      accessToken: newAccessToken,
+    });
   });
 });
 

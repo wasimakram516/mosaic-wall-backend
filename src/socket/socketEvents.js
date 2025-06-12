@@ -1,3 +1,5 @@
+const DisplayMedia = require("../models/DisplayMedia");
+const WallConfig = require("../models/WallConfig");
 
 const socketHandler = (io) => {
   io.on("connection", async (socket) => {
@@ -7,27 +9,24 @@ const socketHandler = (io) => {
       console.error("❌ Socket connection error:", err.message);
     });
 
-    // 🔁 Send all display media to all clients
-    const sendInitialMedia = async () => {
+    // Register listener for a specific wallSlug
+    socket.on("register", async (wallSlug) => {
       try {
-        const media = await DisplayMedia.find();
-        io.emit("mediaUpdate", media);
-      } catch (error) {
-        console.error("❌ Failed to send media on init:", error);
-      }
-    };
+        const wall = await WallConfig.findOne({ slug: wallSlug });
+        if (!wall) {
+          return socket.emit("error", "Invalid wall slug");
+        }
 
-    await sendInitialMedia();
+        // Join a room for that wall
+        socket.join(wallSlug);
+        socket.wallSlug = wallSlug;
+        console.log(`👤 Client ${socket.id} joined room: ${wallSlug}`);
 
-    socket.on("register", async (role) => {
-      socket.role = role;
-      console.log(`👤 Client ${socket.id} registered as ${role}`);
-
-      try {
-        const media = await DisplayMedia.find();
+        // Send initial media for this wall only
+        const media = await DisplayMedia.find({ wall: wall._id }).sort({ createdAt: -1 });
         socket.emit("mediaUpdate", media);
       } catch (error) {
-        console.error("❌ Failed to emit media on register:", error);
+        console.error("❌ Failed to register socket:", error);
       }
     });
 
